@@ -1,0 +1,219 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthUserDto {
+  _id: String!
+  email: String!
+  name: String!
+  phone: String
+}
+
+type Comment {
+  _id: ID!
+  contents: String!
+  createdBy: ID!
+}
+
+input CommentDto {
+  contents: String!
+  postId: String!
+}
+
+input CreateFriendRequestDto {
+  receiverId: String!
+}
+
+input CreatePostDto {
+  contents: String!
+  imageUrl: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input DeleteCommentDto {
+  commentId: String!
+  postId: String!
+}
+
+type FriendRequest {
+  _id: ID!
+
+  """Creation timestamp"""
+  createdAt: DateTime!
+
+  """User Id"""
+  receiverId: ID!
+
+  """User Id"""
+  senderId: ID!
+
+  """Friend Request Status"""
+  status: String!
+
+  """Last update timestamp"""
+  updatedAt: DateTime!
+}
+
+type Like {
+  _id: ID!
+
+  """User Id"""
+  createdBy: ID!
+}
+
+input LikeDto {
+  likeStatus: String!
+  postId: String!
+}
+
+input LoginDto {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createFriendRequest(payload: CreateFriendRequestDto!): FriendRequest!
+  createPost(payload: CreatePostDto!): Post!
+  createPostComment(payload: CommentDto!): PostCommentResponse!
+  deletePost(postId: String!): String!
+  deletePostComment(payload: DeleteCommentDto!): String!
+  likePost(payload: LikeDto!): String!
+  login(payload: LoginDto!): AuthUserDto!
+  logout: String!
+  refreshToken: String!
+  register(payload: RegisterDto!): AuthUserDto!
+  updateFriendRequestStatus(payload: UpdateFriendRequestStatusDto!): String!
+  updatePost(payload: UpdatePostDto!): PostUpdateResponse!
+  updatePostComment(payload: UpdateCommentDto!): UpdateCommentResponse!
+}
+
+type PopulatedUserDetail {
+  _id: ID!
+  email: String!
+  name: String!
+}
+
+type Post {
+  _id: ID!
+
+  """Post comments"""
+  comments: [Comment!]!
+
+  """Post contents"""
+  contents: String!
+
+  """Creation timestamp"""
+  createdAt: DateTime!
+
+  """Post createdby"""
+  createdBy: ID!
+
+  """Post image url"""
+  imageUrl: String
+
+  """Post likes"""
+  likes: [Like!]!
+
+  """Last update timestamp"""
+  updatedAt: DateTime!
+}
+
+type PostCommentResponse {
+  _id: ID!
+  contents: String!
+  createdAt: DateTime!
+  createdBy: PopulatedUserDetail!
+}
+
+input PostQueryDto {
+  limit: Float!
+  page: Float!
+  type: String
+}
+
+type PostUpdateResponse {
+  _id: ID!
+  contents: String!
+  imageUrl: String
+}
+
+type PostWithCreatedByUserDetail {
+  _id: ID!
+  contents: String!
+  createdAt: DateTime!
+  createdBy: PopulatedUserDetail!
+  imageUrl: String
+}
+
+type PostWithLikesAndComments {
+  _id: ID!
+  comments: [PostCommentResponse!]!
+  contents: String!
+  createdAt: DateTime!
+  createdBy: PopulatedUserDetail!
+  imageUrl: String
+  likes: Float!
+}
+
+type Query {
+  fetchAllUsers: [User!]!
+  fetchUserById(id: String!): User!
+  getFriendRequests: [FriendRequest!]!
+  getPostById(postId: String!): PostWithLikesAndComments!
+  getPosts(payload: PostQueryDto!): [PostWithCreatedByUserDetail!]!
+  getPublicFriends: [PopulatedUserDetail!]!
+}
+
+input RegisterDto {
+  confirmPassword: String!
+  email: String!
+  name: String!
+  password: String!
+  phone: String!
+}
+
+type TokenDto {
+  accessToken: String!
+  refreshToken: String!
+}
+
+input UpdateCommentDto {
+  commentId: String!
+  contents: String!
+  postId: String!
+}
+
+type UpdateCommentResponse {
+  contents: String!
+}
+
+input UpdateFriendRequestStatusDto {
+  senderId: String!
+  status: String!
+}
+
+input UpdatePostDto {
+  contents: String!
+  imageUrl: String
+  postId: String!
+}
+
+type User {
+  _id: String!
+
+  """User Email"""
+  email: String!
+
+  """User name"""
+  name: String!
+
+  """User Password"""
+  password: String!
+
+  """User Phone Number"""
+  phone: String
+}

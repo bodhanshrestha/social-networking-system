@@ -1,0 +1,15 @@
+export const messages = {
+  COMMENT_NOT_FOUND: "Comment not found",
+  POST_NOT_FOUND: "Post not found",
+  COMMENT_DELETED_SUCCESSFULLY: "Comment deleted successfully",
+  POST_DELETED_SUCCESSFULLY: "Post deleted successfully",
+  POST_CREATED_SUCCESSFULLY: "Post created successfully",
+  POST_UPDATED_SUCCESSFULLY: "Post updated successfully",
+  POST_LIKED_SUCCESSFULLY: "Post liked successfully",
+  POST_DISLIKED_SUCCESSFULLY: "Post disliked successfully",
+  POST_ALREADY_LIKED: "Post already liked",
+  POST_ALREADY_DISLIKED: "Post already disliked",
+  NO_VALID_FIELDS_TO_UPDATE: "No valid fields to update",
+  YOU_HAVE_ALREADY_DISLIKED_THIS_POST: "You have already disliked this post",
+  YOU_HAVE_ALREADY_LIKED_THIS_POST: "You have already liked this post",
+}
