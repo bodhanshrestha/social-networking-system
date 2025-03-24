@@ -10,8 +10,9 @@ import { FriendRequestStatus } from './enum';
 import { AssociatedUser } from 'src/user/associated-user.model';
 import { CreateFriendRequestDto } from './dto/input';
 import { UserService } from 'src/user/user.service';
-import { postUserProjection } from 'src/post/constants';
 import { PopulatedUserDetail } from 'src/shared/dto';
+import { populatedUserProjection } from 'src/shared/constants';
+import { FriendRequestResponse } from './dto/objects';
 
 @Injectable()
 export class FriendRequestService {
@@ -23,14 +24,36 @@ export class FriendRequestService {
     private readonly userService: UserService,
   ) {}
 
+  async populateFriendRequest(id: string): Promise<FriendRequestResponse> {
+    const populatedFriendRequest = await this.friendRequestModel
+      .findById(id)
+      .populate('senderId', populatedUserProjection)
+      .populate('receiverId', populatedUserProjection);
+
+    // Transform the result
+    const transformedRequest = {
+      _id: populatedFriendRequest?._id,
+      sender: populatedFriendRequest?.senderId,
+      receiver: populatedFriendRequest?.receiverId,
+      status: populatedFriendRequest?.status,
+      createdAt: populatedFriendRequest?.createdAt,
+      updatedAt: populatedFriendRequest?.updatedAt,
+    };
+    return transformedRequest as unknown as FriendRequestResponse;
+  }
+
   async create(
     { receiverId }: CreateFriendRequestDto,
     senderId: string,
-  ): Promise<FriendRequest> {
+  ): Promise<FriendRequestResponse> {
     if (senderId === receiverId) {
       throw new BadRequestException(
         'You cannot send friend request to yourself',
       );
+    }
+    const reciever = await this.userService.findOne(receiverId);
+    if (!reciever) {
+      throw new NotFoundException('Reciever not found');
     }
 
     const existingRequest = await this.friendRequestModel
@@ -42,8 +65,14 @@ export class FriendRequestService {
 
     if (
       existingRequest &&
-      (existingRequest.status === FriendRequestStatus.ACCEPTED ||
-        existingRequest.status === FriendRequestStatus.PENDING)
+      existingRequest.status === FriendRequestStatus.ACCEPTED
+    ) {
+      throw new BadRequestException('Friend already exists');
+    }
+
+    if (
+      existingRequest &&
+      existingRequest.status === FriendRequestStatus.PENDING
     ) {
       throw new BadRequestException('Friend request already exists');
     }
@@ -52,11 +81,12 @@ export class FriendRequestService {
       existingRequest &&
       existingRequest.status === FriendRequestStatus.REJECTED
     ) {
-      return (await this.friendRequestModel.findByIdAndUpdate(
+      await this.friendRequestModel.findByIdAndUpdate(
         existingRequest._id,
         { status: FriendRequestStatus.PENDING },
         { new: true },
-      )) as FriendRequest;
+      );
+      return await this.populateFriendRequest(existingRequest._id.toString());
     }
 
     const friendRequestResult = await this.friendRequestModel.create({
@@ -64,7 +94,7 @@ export class FriendRequestService {
       receiverId,
     });
     this.createAssociatedFriends(senderId, receiverId);
-    return friendRequestResult;
+    return await this.populateFriendRequest(friendRequestResult._id.toString());
   }
 
   async createAssociatedFriends(senderId: string, receiverId: string) {
@@ -143,11 +173,25 @@ export class FriendRequestService {
     return result.status;
   }
 
-  async findAll(userId: string): Promise<FriendRequest[]> {
-    return await this.friendRequestModel.find({
-      receiverId: userId,
-      status: FriendRequestStatus.PENDING,
-    });
+  async findAll(userId: string): Promise<FriendRequestResponse[]> {
+    const result = await this.friendRequestModel
+      .find({
+        receiverId: userId,
+        status: FriendRequestStatus.PENDING,
+      })
+      .populate('senderId', populatedUserProjection)
+      .populate('receiverId', populatedUserProjection);
+
+    const transformedResult = result.map((item) => ({
+      _id: item._id,
+      sender: item.senderId,
+      receiver: item.receiverId,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    })) as unknown as FriendRequestResponse[];
+
+    return transformedResult;
   }
 
   async findPublicFriends(userId: string): Promise<PopulatedUserDetail[]> {
@@ -166,9 +210,22 @@ export class FriendRequestService {
           },
         ],
       },
-      { select: postUserProjection },
+      { select: populatedUserProjection },
     );
 
     return publicFriends as unknown as PopulatedUserDetail[];
+  }
+
+  async findAllFriends(userId: string): Promise<PopulatedUserDetail[]> {
+    const associatedUser = await this.associatedUserModel
+      .findOne({ userId })
+      .select({ friends: 1, _id: 0 });
+
+    const friends = await this.userService.findMany(
+      { _id: { $in: associatedUser?.friends } },
+      { select: populatedUserProjection },
+    );
+
+    return friends as unknown as PopulatedUserDetail[];
   }
 }

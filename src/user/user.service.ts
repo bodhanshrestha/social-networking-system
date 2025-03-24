@@ -2,18 +2,54 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './user.model';
-import { CreateUserDto } from './user.dto';
+import { CreateUserDto, UserResponse } from './dto';
 import { FindOptions } from 'src/shared/interfaces';
+import { AssociatedUser } from './associated-user.model';
+import { populatedUserProjection } from 'src/shared/constants';
+import { PaginationQueryDto, PopulatedUserDetail } from 'src/shared/dto';
+import { getPagination } from 'src/shared/utils/pagination';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<User>,
+    @InjectModel(AssociatedUser.name)
+    private readonly associatedUserModel: Model<AssociatedUser>,
   ) {}
 
-  async findAll() {
-    return this.userModel.find();
+  async findAll(query: PaginationQueryDto): Promise<UserResponse> {
+    const { limit, skip } = getPagination(query);
+    const response = await this.userModel.aggregate([
+      {
+        $match: {},
+      },
+      {
+        $facet: {
+          rows: [
+            {
+              $skip: skip,
+            },
+            {
+              $limit: limit,
+            },
+            {
+              $project: populatedUserProjection,
+            },
+          ],
+          count: [
+            {
+              $count: 'total',
+            },
+          ],
+        },
+      },
+    ]);
+
+    return {
+      rows: response[0].rows as PopulatedUserDetail[],
+      total: response[0].count[0].total,
+    };
   }
 
   async findOneById(id: string, options?: FindOptions): Promise<User | null> {
@@ -52,5 +88,17 @@ export class UserService {
 
   async findOneByEmail(email: string): Promise<User | null> {
     return await this.userModel.findOne({ email }).lean();
+  }
+
+  async getFriendIds(userId: string): Promise<string[]> {
+    const userAssociated = await this.associatedUserModel
+      .findOne({ userId })
+      .lean();
+    const friendIds = [
+      ...new Set(
+        userAssociated?.friends?.map((friend) => friend.toString()) || [],
+      ),
+    ];
+    return friendIds;
   }
 }

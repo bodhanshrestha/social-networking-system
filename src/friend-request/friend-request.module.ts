@@ -9,6 +9,7 @@ import {
 } from 'src/user/associated-user.model';
 import { GQLAuthGuard } from 'src/shared/guard/auth.guard';
 import { UserModule } from 'src/user/user.module';
+import { RateLimitingModule } from 'src/shared/modules/ratelimiting.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UserModule } from 'src/user/user.module';
       },
     ]),
     UserModule,
+    RateLimitingModule,
   ],
   providers: [FriendRequestService, FriendRequestResolver, GQLAuthGuard],
   exports: [FriendRequestService],

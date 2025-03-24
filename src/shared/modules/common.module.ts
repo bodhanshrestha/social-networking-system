@@ -9,10 +9,10 @@ import { JwtModule } from './jwt.module';
   imports: [
     ConfigModule,
     MongooseModule,
-    RateLimitingModule,
+    // RateLimitingModule,
     GraphQLModule,
-    JwtModule
+    JwtModule,
   ],
   // exports: [ConfigModule, MongooseModule, RateLimitingModule, GraphQLModule, JwtModule]
 })
-export class CommonModule { }
+export class CommonModule {}

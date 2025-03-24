@@ -11,18 +11,20 @@ import { UseGuards } from '@nestjs/common';
 import { GQLAuthGuard } from 'src/shared/guard/auth.guard';
 import { TokenizedUserData } from 'src/auth/dto';
 import { PopulatedUserDetail } from 'src/shared/dto';
+import { FriendRequestResponse } from './dto/objects';
 
 @Resolver()
 @UseGuards(GQLAuthGuard)
 export class FriendRequestResolver {
   constructor(private readonly friendRequestService: FriendRequestService) {}
 
-  @Mutation(() => FriendRequest)
-  createFriendRequest(
+  @Mutation(() => FriendRequestResponse)
+  async createFriendRequest(
     @Args('payload') payload: CreateFriendRequestDto,
     @LoggedInUser() user: TokenizedUserData,
-  ) {
-    return this.friendRequestService.create(payload, user._id);
+  ): Promise<FriendRequestResponse> {
+    const result = await this.friendRequestService.create(payload, user._id);
+    return result;
   }
 
   @Mutation(() => String)
@@ -38,7 +40,7 @@ export class FriendRequestResolver {
     );
   }
 
-  @Query(() => [FriendRequest])
+  @Query(() => [FriendRequestResponse])
   getFriendRequests(@LoggedInUser() user: TokenizedUserData) {
     return this.friendRequestService.findAll(user._id);
   }
@@ -48,5 +50,12 @@ export class FriendRequestResolver {
     @LoggedInUser() user: TokenizedUserData,
   ): Promise<PopulatedUserDetail[]> {
     return this.friendRequestService.findPublicFriends(user._id);
+  }
+
+  @Query(() => [PopulatedUserDetail])
+  getFriends(
+    @LoggedInUser() user: TokenizedUserData,
+  ): Promise<PopulatedUserDetail[]> {
+    return this.friendRequestService.findAllFriends(user._id);
   }
 }

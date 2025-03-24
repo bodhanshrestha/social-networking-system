@@ -20,25 +20,18 @@ import {
   PostWithLikesAndComments,
   UpdateCommentResponse,
 } from './dto/objects';
-import {
-  messages,
-  postAllProjection,
-  postProjection,
-  postUserProjection,
-} from './constants';
-import { AssociatedUser } from 'src/user/associated-user.model';
+import { messages, postAllProjection, postProjection } from './constants';
 import { UserService } from 'src/user/user.service';
 import { removeDuplicates } from 'src/shared/utils/array';
 import { PostMapper } from './post.mapper';
 import { getPagination } from 'src/shared/utils/pagination';
 import { PopulatedUserDetail } from 'src/shared/dto';
+import { populatedUserProjection } from 'src/shared/constants';
 
 @Injectable()
 export class PostService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
-    @InjectModel(AssociatedUser.name)
-    private readonly associatedUserModel: Model<AssociatedUser>,
     private readonly userService: UserService,
     private readonly postMapper: PostMapper,
   ) {}
@@ -84,11 +77,16 @@ export class PostService {
     return postsWithUser;
   }
 
-  async findPostById(postId: string): Promise<PostWithLikesAndComments> {
+  async findPostById(
+    postId: string,
+    userId: string,
+  ): Promise<PostWithLikesAndComments> {
+    const friends = await this.userService.getFriendIds(userId);
+
     const post = await this.postModel
-      .findById(postId)
+      .findOne({ _id: postId, createdBy: { $in: friends } })
       .select(postAllProjection)
-      .populate('createdBy', postUserProjection)
+      .populate('createdBy', populatedUserProjection)
       .lean();
     if (!post) {
       throw new BadRequestException(messages.POST_NOT_FOUND);
@@ -161,6 +159,48 @@ export class PostService {
   }
 
   // POST COMMENT
+  async findAllPostComments(postId: string): Promise<PostCommentResponse[]> {
+    const post = await this.postModel
+      .findById(postId)
+      .select('comments')
+      .lean();
+    if (!post) {
+      throw new BadRequestException(messages.POST_NOT_FOUND);
+    }
+    const commentUsers = await this.getPostCommentsCreatedByUsers(post);
+
+    const result = this.postMapper.mapPostToPostWithLikesAndComments(
+      post,
+      commentUsers,
+    );
+
+    return result.comments;
+  }
+
+  async findPostCommentById(
+    postId: string,
+    commentId: string,
+  ): Promise<PostCommentResponse> {
+    const post = await this.postModel
+      .findById(postId)
+      .select('comments')
+      .lean();
+    if (!post) {
+      throw new BadRequestException(messages.POST_NOT_FOUND);
+    }
+    const comment = post?.comments.find((comment) =>
+      comment?._id?.equals(commentId),
+    );
+    if (!comment) {
+      throw new BadRequestException(messages.COMMENT_NOT_FOUND);
+    }
+
+    const commentUser = await this.getPostCommentCreatedByUser(comment);
+
+    const result = this.postMapper.mapPostComment(comment, commentUser);
+    return result;
+  }
+
   async createPostComment(
     commentDto: CommentDto,
     userId: string,
@@ -263,17 +303,6 @@ export class PostService {
   }
 
   // Helper functions
-  async getFriendIds(userId: string): Promise<string[]> {
-    const userAssociated = await this.associatedUserModel
-      .findOne({ userId: ObjectId(userId) })
-      .lean();
-    const friendIds = [
-      ...new Set(
-        userAssociated?.friends?.map((friend) => friend.toString()) || [],
-      ),
-    ];
-    return friendIds;
-  }
 
   async getPostsQueries(userId: string, type: PostFetchType) {
     let query: any = { createdBy: userId };
@@ -281,12 +310,12 @@ export class PostService {
 
     switch (type) {
       case PostFetchType.FRIENDS: {
-        friendIds = await this.getFriendIds(userId);
+        friendIds = await this.userService.getFriendIds(userId);
         query = { createdBy: { $in: friendIds } };
         break;
       }
       case PostFetchType.ALL: {
-        friendIds = await this.getFriendIds(userId);
+        friendIds = await this.userService.getFriendIds(userId);
 
         query = friendIds.length
           ? { $or: [{ createdBy: userId }, { createdBy: { $in: friendIds } }] }
@@ -309,7 +338,7 @@ export class PostService {
     );
 
     const createdByUsers = await this.userService.findByIds(createdByUserIds, {
-      select: postUserProjection,
+      select: populatedUserProjection,
     });
 
     return createdByUsers;
@@ -320,7 +349,7 @@ export class PostService {
   ): Promise<PopulatedUserDetail> {
     const commentUser = await this.userService.findOneById(
       comment.createdBy.toString(),
-      { select: postUserProjection },
+      { select: populatedUserProjection },
     );
 
     return commentUser as unknown as PopulatedUserDetail;
@@ -333,7 +362,7 @@ export class PostService {
 
     const commentUsers = commentUserIds
       ? await this.userService.findByIds(commentUserIds, {
-          select: postUserProjection,
+          select: populatedUserProjection,
         })
       : [];
 

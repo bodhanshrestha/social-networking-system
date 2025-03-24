@@ -1,6 +1,6 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PostService } from './post.service';
-import { Post } from './post.model';
+import { Comment, Post } from './post.model';
 import {
   CommentDto,
   CreatePostDto,
@@ -21,11 +21,20 @@ import {
   PostWithLikesAndComments,
   UpdateCommentResponse,
 } from './dto/objects';
+import { PostFetchType } from './enum';
 
 @Resolver()
 @UseGuards(GQLAuthGuard)
 export class PostResolver {
   constructor(private readonly postService: PostService) {}
+
+  @Query(() => Number, { nullable: true })
+  async getPostsCount(
+    @Args('type', { nullable: true }) type: PostFetchType,
+    @LoggedInUser() loggedInUser: TokenizedUserData,
+  ) {
+    return await this.postService.findAllPostsCount(loggedInUser._id, type);
+  }
 
   @Query(() => [PostWithCreatedByUserDetail])
   async getPosts(
@@ -40,8 +49,11 @@ export class PostResolver {
   }
 
   @Query(() => PostWithLikesAndComments)
-  async getPostById(@Args('postId') postId: string) {
-    return await this.postService.findPostById(postId);
+  async getPostById(
+    @Args('postId') postId: string,
+    @LoggedInUser() loggedInUser: TokenizedUserData,
+  ) {
+    return await this.postService.findPostById(postId, loggedInUser._id);
   }
 
   @Mutation(() => Post)
@@ -66,6 +78,21 @@ export class PostResolver {
     @LoggedInUser() loggedInUser: TokenizedUserData,
   ): Promise<string> {
     return await this.postService.deletePost(postId, loggedInUser._id);
+  }
+
+  @Query(() => [PostCommentResponse])
+  async getPostComments(
+    @Args('postId') postId: string,
+  ): Promise<PostCommentResponse[]> {
+    return await this.postService.findAllPostComments(postId);
+  }
+
+  @Query(() => PostCommentResponse)
+  async getPostCommentById(
+    @Args('postId') postId: string,
+    @Args('commentId') commentId: string,
+  ): Promise<PostCommentResponse> {
+    return await this.postService.findPostCommentById(postId, commentId);
   }
 
   @Mutation(() => PostCommentResponse)

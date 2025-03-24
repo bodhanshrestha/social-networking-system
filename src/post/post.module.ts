@@ -9,6 +9,7 @@ import {
 } from 'src/user/associated-user.model';
 import { UserModule } from 'src/user/user.module';
 import { PostMapper } from './post.mapper';
+import { RateLimitingModule } from 'src/shared/modules/ratelimiting.module';
 
 @Module({
   imports: [
@@ -17,12 +18,9 @@ import { PostMapper } from './post.mapper';
         name: Post.name,
         schema: PostSchema,
       },
-      {
-        name: AssociatedUser.name,
-        schema: AssociatedUserSchema,
-      },
     ]),
     UserModule,
+    RateLimitingModule,
   ],
   providers: [PostService, PostResolver, PostMapper],
 })

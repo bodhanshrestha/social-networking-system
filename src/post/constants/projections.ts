@@ -9,12 +9,6 @@ export const postProjection = {
   // likes: 1
 };
 
-export const postUserProjection = {
-  name: 1,
-  _id: 1,
-  email: 1,
-};
-
 export const postAllProjection = {
   ...postProjection,
   comments: 1,

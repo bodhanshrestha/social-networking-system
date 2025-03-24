@@ -39,23 +39,13 @@ input DeleteCommentDto {
   postId: String!
 }
 
-type FriendRequest {
+type FriendRequestResponse {
   _id: ID!
-
-  """Creation timestamp"""
-  createdAt: DateTime!
-
-  """User Id"""
-  receiverId: ID!
-
-  """User Id"""
-  senderId: ID!
-
-  """Friend Request Status"""
+  createdAt: DateTime
+  receiver: PopulatedUserDetail!
+  sender: PopulatedUserDetail!
   status: String!
-
-  """Last update timestamp"""
-  updatedAt: DateTime!
+  updatedAt: DateTime
 }
 
 type Like {
@@ -76,7 +66,7 @@ input LoginDto {
 }
 
 type Mutation {
-  createFriendRequest(payload: CreateFriendRequestDto!): FriendRequest!
+  createFriendRequest(payload: CreateFriendRequestDto!): FriendRequestResponse!
   createPost(payload: CreatePostDto!): Post!
   createPostComment(payload: CommentDto!): PostCommentResponse!
   deletePost(postId: String!): String!
@@ -89,6 +79,11 @@ type Mutation {
   updateFriendRequestStatus(payload: UpdateFriendRequestStatusDto!): String!
   updatePost(payload: UpdatePostDto!): PostUpdateResponse!
   updatePostComment(payload: UpdateCommentDto!): UpdateCommentResponse!
+}
+
+input PaginationQueryDto {
+  limit: Float!
+  page: Float!
 }
 
 type PopulatedUserDetail {
@@ -160,11 +155,15 @@ type PostWithLikesAndComments {
 }
 
 type Query {
-  fetchAllUsers: [User!]!
+  fetchAllUsers(payload: PaginationQueryDto!): UserResponse!
   fetchUserById(id: String!): User!
-  getFriendRequests: [FriendRequest!]!
+  getFriendRequests: [FriendRequestResponse!]!
+  getFriends: [PopulatedUserDetail!]!
   getPostById(postId: String!): PostWithLikesAndComments!
+  getPostCommentById(commentId: String!, postId: String!): PostCommentResponse!
+  getPostComments(postId: String!): [PostCommentResponse!]!
   getPosts(payload: PostQueryDto!): [PostWithCreatedByUserDetail!]!
+  getPostsCount(type: String): Float
   getPublicFriends: [PopulatedUserDetail!]!
 }
 
@@ -216,4 +215,9 @@ type User {
 
   """User Phone Number"""
   phone: String
+}
+
+type UserResponse {
+  rows: [PopulatedUserDetail!]!
+  total: Float!
 }

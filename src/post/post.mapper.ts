@@ -30,7 +30,7 @@ export class PostMapper {
     post: Post,
     commentUsers: User[],
   ): PostWithLikesAndComments {
-    const likes = post.likes.length;
+    const likes = post?.likes?.length || 0;
 
     const comments = post.comments?.map((comment) => {
       const commentUser = commentUsers.find(
