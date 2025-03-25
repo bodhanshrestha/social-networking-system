@@ -9,3 +9,12 @@ export class UserResponse {
   @Field(() => Number)
   total: number;
 }
+
+@ObjectType()
+export class AccountResponse {
+  @Field(() => String)
+  _id: string;
+
+  @Field(() => String)
+  email: string;
+}

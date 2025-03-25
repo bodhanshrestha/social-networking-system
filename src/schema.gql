@@ -2,6 +2,11 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AccountResponse {
+  _id: String!
+  email: String!
+}
+
 type AuthUserDto {
   _id: String!
   email: String!
@@ -66,9 +71,11 @@ input LoginDto {
 }
 
 type Mutation {
+  activateAccount(email: String!): AccountResponse!
   createFriendRequest(payload: CreateFriendRequestDto!): FriendRequestResponse!
   createPost(payload: CreatePostDto!): Post!
   createPostComment(payload: CommentDto!): PostCommentResponse!
+  deactivateAccount: AccountResponse!
   deletePost(postId: String!): String!
   deletePostComment(payload: DeleteCommentDto!): String!
   likePost(payload: LikeDto!): String!

@@ -1,12 +1,8 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PostService } from './post.service';
 import { PostResolver } from './post.resolver';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Post, PostSchema } from './post.model';
-import {
-  AssociatedUser,
-  AssociatedUserSchema,
-} from 'src/user/associated-user.model';
 import { UserModule } from 'src/user/user.module';
 import { PostMapper } from './post.mapper';
 import { RateLimitingModule } from 'src/shared/modules/ratelimiting.module';
@@ -19,9 +15,10 @@ import { RateLimitingModule } from 'src/shared/modules/ratelimiting.module';
         schema: PostSchema,
       },
     ]),
-    UserModule,
+    forwardRef(() => UserModule),
     RateLimitingModule,
   ],
   providers: [PostService, PostResolver, PostMapper],
+  exports: [PostService, PostMapper],
 })
 export class PostModule {}

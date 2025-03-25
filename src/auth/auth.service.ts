@@ -14,6 +14,7 @@ import { messages } from './constants';
 import { User } from 'src/user/user.model';
 import { ConfigService } from '@nestjs/config';
 import { AuthMapper } from './auth.mapper';
+import { AccountResponse } from 'src/user/dto';
 
 @Injectable()
 export class AuthService {
@@ -108,5 +109,13 @@ export class AuthService {
     const { accessToken } = this.issueToken(user);
 
     return accessToken;
+  }
+
+  public async deactivateAccount(email: string): Promise<AccountResponse> {
+    return await this.userService.deactivateAccount(email);
+  }
+
+  public async activateAccount(email: string): Promise<AccountResponse> {
+    return await this.userService.activateAccount(email);
   }
 }

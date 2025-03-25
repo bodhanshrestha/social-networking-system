@@ -30,18 +30,22 @@ export class PostMapper {
     post: Post,
     commentUsers: User[],
   ): PostWithLikesAndComments {
-    const likes = post?.likes?.length || 0;
+    const likes = post?.likes?.length
+      ? post?.likes?.filter((p) => p?.isActive)?.length
+      : 0;
 
-    const comments = post.comments?.map((comment) => {
-      const commentUser = commentUsers.find(
-        (user) => user?._id.toString() === comment.createdBy?.toString(),
-      ) as unknown as PopulatedUserDetail;
+    const comments = post.comments
+      ?.filter((e) => e.isActive)
+      .map((comment) => {
+        const commentUser = commentUsers.find(
+          (user) => user?._id.toString() === comment.createdBy?.toString(),
+        ) as unknown as PopulatedUserDetail;
 
-      return {
-        ...comment,
-        createdBy: commentUser,
-      };
-    });
+        return {
+          ...comment,
+          createdBy: commentUser,
+        };
+      });
 
     return {
       ...post,

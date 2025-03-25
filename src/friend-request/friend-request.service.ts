@@ -58,8 +58,16 @@ export class FriendRequestService {
 
     const existingRequest = await this.friendRequestModel
       .findOne({
-        senderId: senderId,
-        receiverId: receiverId,
+        $or: [
+          {
+            senderId: senderId,
+            receiverId: receiverId,
+          },
+          {
+            senderId: receiverId,
+            receiverId: senderId,
+          },
+        ],
       })
       .lean();
 

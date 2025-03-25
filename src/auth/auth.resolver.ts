@@ -1,9 +1,13 @@
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, AuthUserDto } from './dto';
+import { LoginDto, RegisterDto, AuthUserDto, TokenizedUserData } from './dto';
 import { Request, Response } from 'express';
 import { deleteAuthToken, setAuthToken } from 'src/shared/utils/cookies';
 import { TokenType } from 'src/shared/enums';
+import { UseGuards } from '@nestjs/common';
+import { GQLAuthGuard } from 'src/shared/guard/auth.guard';
+import { LoggedInUser } from 'src/shared/decorator/logged-in-user.decorator';
+import { AccountResponse } from 'src/user/dto';
 
 @Resolver()
 export class AuthResolver {
@@ -56,5 +60,24 @@ export class AuthResolver {
     setAuthToken(res, TokenType.ACCESS_TOKEN, newAccessToken);
 
     return 'Token refreshed successfully';
+  }
+
+  @Mutation(() => AccountResponse)
+  @UseGuards(GQLAuthGuard)
+  async deactivateAccount(
+    @LoggedInUser() user: TokenizedUserData,
+  ): Promise<AccountResponse> {
+    return await this.authService.deactivateAccount(user.email.toString());
+  }
+
+  @Mutation(() => AccountResponse)
+  async activateAccount(
+    @Args('email') email: string,
+    @Context() { res }: { res: Response },
+  ): Promise<AccountResponse> {
+    const response = await this.authService.activateAccount(email);
+    deleteAuthToken(res, TokenType.ACCESS_TOKEN);
+    deleteAuthToken(res, TokenType.REFRESH_TOKEN);
+    return response;
   }
 }

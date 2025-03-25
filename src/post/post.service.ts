@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import {
   CommentDto,
@@ -32,6 +37,7 @@ import { populatedUserProjection } from 'src/shared/constants';
 export class PostService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
+    @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly postMapper: PostMapper,
   ) {}
@@ -41,7 +47,7 @@ export class PostService {
     createPostDto: CreatePostDto,
     userId: string,
   ): Promise<Post> {
-    const payload = { ...createPostDto, createdBy: ObjectId(userId) };
+    const payload = { ...createPostDto, createdBy: userId };
     const post = await this.postModel.create(payload);
     return post;
   }
@@ -84,7 +90,11 @@ export class PostService {
     const friends = await this.userService.getFriendIds(userId);
 
     const post = await this.postModel
-      .findOne({ _id: postId, createdBy: { $in: friends } })
+      .findOne({
+        _id: postId,
+        $or: [{ createdBy: { $in: friends } }, { createdBy: userId }],
+        isActive: true,
+      })
       .select(postAllProjection)
       .populate('createdBy', populatedUserProjection)
       .lean();
@@ -135,7 +145,7 @@ export class PostService {
     }
 
     const post = await this.postModel.findOneAndUpdate(
-      { _id: postId, createdBy: userId },
+      { _id: postId, createdBy: userId, isActive: true },
       payload,
       {
         new: true,
@@ -151,6 +161,7 @@ export class PostService {
     const post = await this.postModel.findOneAndDelete({
       _id: postId,
       createdBy: userId,
+      isActive: true,
     });
     if (!post) {
       throw new BadRequestException(messages.POST_NOT_FOUND);
@@ -161,7 +172,7 @@ export class PostService {
   // POST COMMENT
   async findAllPostComments(postId: string): Promise<PostCommentResponse[]> {
     const post = await this.postModel
-      .findById(postId)
+      .findOne({ _id: postId, isActive: true })
       .select('comments')
       .lean();
     if (!post) {
@@ -182,15 +193,18 @@ export class PostService {
     commentId: string,
   ): Promise<PostCommentResponse> {
     const post = await this.postModel
-      .findById(postId)
+      .findOne({ _id: postId, isActive: true })
       .select('comments')
       .lean();
+
     if (!post) {
       throw new BadRequestException(messages.POST_NOT_FOUND);
     }
-    const comment = post?.comments.find((comment) =>
-      comment?._id?.equals(commentId),
-    );
+
+    const comment = post?.comments
+      .filter((e) => e.isActive)
+      .find((comment) => comment?._id?.equals(commentId));
+
     if (!comment) {
       throw new BadRequestException(messages.COMMENT_NOT_FOUND);
     }
@@ -211,8 +225,8 @@ export class PostService {
       createdBy: ObjectId(userId),
     };
     const post = await this.postModel
-      .findByIdAndUpdate(
-        postId,
+      .findOneAndUpdate(
+        { _id: postId, isActive: true },
         { $push: { comments: payload } },
         { new: true },
       )
@@ -236,7 +250,17 @@ export class PostService {
     const { commentId, postId, contents } = commentDto;
 
     const post = await this.postModel.findOneAndUpdate(
-      { _id: postId, 'comments._id': commentId, 'comments.createdBy': userId },
+      {
+        _id: postId,
+        isActive: true,
+        comments: {
+          $elemMatch: {
+            _id: commentId,
+            createdBy: userId,
+            isActive: true,
+          },
+        },
+      },
       { $set: { 'comments.$.contents': contents } },
       { new: true },
     );
@@ -255,7 +279,17 @@ export class PostService {
   ): Promise<string> {
     const { commentId, postId } = commentDto;
     const post = await this.postModel.findOneAndUpdate(
-      { _id: postId, 'comments._id': commentId, 'comments.createdBy': userId },
+      {
+        _id: postId,
+        isActive: true,
+        comments: {
+          $elemMatch: {
+            _id: commentId,
+            createdBy: userId,
+            isActive: true,
+          },
+        },
+      },
       { $pull: { comments: { _id: commentId } } },
       { new: true },
     );
@@ -270,7 +304,10 @@ export class PostService {
     const postId = likeDto.postId;
     const likeStatus = likeDto.likeStatus;
 
-    const post = await this.postModel.findById(postId);
+    const post = await this.postModel.findOne({
+      _id: postId,
+      isActive: true,
+    });
     if (!post) {
       throw new BadRequestException(messages.POST_NOT_FOUND);
     }
@@ -305,21 +342,24 @@ export class PostService {
   // Helper functions
 
   async getPostsQueries(userId: string, type: PostFetchType) {
-    let query: any = { createdBy: userId };
+    let query: any = { createdBy: userId, isActive: true };
     let friendIds: string[] = [];
 
     switch (type) {
       case PostFetchType.FRIENDS: {
         friendIds = await this.userService.getFriendIds(userId);
-        query = { createdBy: { $in: friendIds } };
+        query = { createdBy: { $in: friendIds }, isActive: true };
         break;
       }
       case PostFetchType.ALL: {
         friendIds = await this.userService.getFriendIds(userId);
 
         query = friendIds.length
-          ? { $or: [{ createdBy: userId }, { createdBy: { $in: friendIds } }] }
-          : { createdBy: userId };
+          ? {
+              $or: [{ createdBy: userId }, { createdBy: { $in: friendIds } }],
+              isActive: true,
+            }
+          : { createdBy: userId, isActive: true };
 
         break;
       }
@@ -357,7 +397,9 @@ export class PostService {
 
   async getPostCommentsCreatedByUsers(post: Post) {
     const commentUserIds = removeDuplicates(
-      post.comments.map((comment) => comment.createdBy?.toString()),
+      post.comments
+        .filter((e) => e.isActive)
+        .map((comment) => comment.createdBy?.toString()),
     );
 
     const commentUsers = commentUserIds
@@ -367,5 +409,40 @@ export class PostService {
       : [];
 
     return commentUsers;
+  }
+
+  async handleVisibilityOfPostCommentLikeCreatedByUser(
+    userId: string,
+    isActive: boolean,
+  ) {
+    await this.handleVisibilityOfPostCreatedByUser(userId, isActive);
+    await this.handleVisibilityOfPostCommentCreatedByUser(userId, isActive);
+    await this.handleVisibilityOfPostLikeCreatedByUser(userId, isActive);
+  }
+
+  async handleVisibilityOfPostCreatedByUser(userId: string, isActive: boolean) {
+    await this.postModel.updateMany(
+      { createdBy: userId, isActive: !isActive },
+      { isActive: isActive },
+    );
+  }
+  async handleVisibilityOfPostCommentCreatedByUser(
+    userId: string,
+    isActive: boolean,
+  ) {
+    await this.postModel.updateMany(
+      { 'comments.createdBy': userId, isActive: !isActive },
+      { $set: { 'comments.$.isActive': isActive } },
+    );
+  }
+
+  async handleVisibilityOfPostLikeCreatedByUser(
+    userId: string,
+    isActive: boolean,
+  ) {
+    await this.postModel.updateMany(
+      { 'likes.createdBy': userId, isActive: !isActive },
+      { $set: { 'likes.$.isActive': isActive } },
+    );
   }
 }
